@@ -21,9 +21,8 @@ app.post('/webhook/page', async (req, res) => {
   const entry = req.body.entry;
 
   const sender_id = entry[0].messaging[0].sender.id;
-  const joke = await fetch_joke();
 
-  send_message(sender_id, joke);
+  send_joke(sender_id);
   res.status(200);
 });
 
@@ -31,15 +30,28 @@ app.listen(port, () => {
   console.log(`App listening on port ${port}`);
 });
 
-async function fetch_joke() {
+async function send_joke(sender_id) {
   const res = await axios.get('https://icanhazdadjoke.com/', {
     headers: { Accept: 'application/json' },
   });
-  return res.data.joke;
+  const joke = res.data.joke;
+  const message = {
+    text: joke,
+    quick_replies: [
+      {
+        content_type: 'text',
+        title: 'More joke',
+        payload: 'send_joke',
+        image_url: undefined,
+      },
+    ],
+  };
+  send_message(sender_id, message);
+  return;
 }
 
-function send_message(recipient_id, message_text) {
-  console.log(`sending message to ${recipient_id}: ${message_text}`);
+function send_message(recipient_id, message) {
+  console.log(`sending message to ${recipient_id}: ${message}`);
 
   const params = {
     access_token: process.env.WORKPLACE_TOKEN,
@@ -53,9 +65,7 @@ function send_message(recipient_id, message_text) {
     recipient: {
       id: recipient_id,
     },
-    message: {
-      text: message_text,
-    },
+    message,
   };
 
   axios
