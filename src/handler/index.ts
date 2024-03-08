@@ -14,18 +14,21 @@ enum MessageKeyWords {
 }
 
 export async function webHookPageHandler(message: string, senderId: string) {
-  switch (message) {
-    case MessageKeyWords.CalendarEvents:
-      await calendarEventsHandler(senderId);
-      break;
-    case MessageKeyWords.TeamAvailability:
-      await teamAvailabilityHandler(senderId);
-      break;
-    case MessageKeyWords.Joke:
-      await jokeHandler(senderId);
-      break;
-    default:
-      await notMatchHandler(senderId);
+  let matched = false;
+  if (message.includes(MessageKeyWords.CalendarEvents)) {
+    matched = true;
+    await calendarEventsHandler(senderId);
+  }
+  if (message.includes(MessageKeyWords.TeamAvailability)) {
+    matched = true;
+    await teamAvailabilityHandler(senderId);
+  }
+  if (message.includes(MessageKeyWords.Joke)) {
+    matched = true;
+    await jokeHandler(senderId);
+  }
+  if (matched === false) {
+    await notMatchHandler(senderId);
   }
 }
 
@@ -79,7 +82,7 @@ async function calendarEventsHandler(senderId: string) {
     return {
       title: summary,
       subtitle: `start: ${readableStart}\nend : ${readableEnd}`,
-      image_url: `${process.env.BASE_URL}assets/google-calendar`,
+      image_url: `${process.env.BASE_URL}/assets/google-calendar`,
     };
   });
 
