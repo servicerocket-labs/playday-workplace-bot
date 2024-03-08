@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios';
 export async function sendMessage(recipientId: string, message: any) {
-  console.log(`sending message to ${recipientId}: ${message}`);
+  console.log(`sending message to ${recipientId}`);
 
   const params = {
     access_token: process.env.WORKPLACE_TOKEN,

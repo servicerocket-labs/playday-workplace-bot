@@ -2,7 +2,6 @@ import keys from '../../credentials.json';
 
 import { Auth, calendar_v3, google } from 'googleapis';
 
-import { UserRefreshClient } from 'google-auth-library/build/src/auth/refreshclient';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -48,12 +47,12 @@ export function getRedirectPath(): string {
  *
  * @return {Promise<UserRefreshClient|null>}
  */
-export async function getUserRefreshClient(): Promise<UserRefreshClient | null> {
+export async function getUserRefreshClient(): Promise<Auth.UserRefreshClient | null> {
   try {
     const content = await fs.readFile(TOKEN_PATH, 'utf8');
     const credentials = JSON.parse(content);
     const jsonClient = Auth.auth.fromJSON(credentials);
-    if (jsonClient instanceof UserRefreshClient) {
+    if (jsonClient instanceof Auth.UserRefreshClient) {
       return jsonClient;
     }
     return null;
@@ -79,8 +78,9 @@ export async function saveCredentials(refreshToken: string): Promise<void> {
   await fs.writeFile(TOKEN_PATH, payload);
 }
 
-export async function getTodayPrimaryEvents(
-  auth: UserRefreshClient
+export async function getTodayEvents(
+  auth: Auth.UserRefreshClient,
+  calendarId: string = 'primary'
 ): Promise<calendar_v3.Schema$Event[]> {
   const calendar = google.calendar({ version: 'v3', auth });
   const todayStart = new Date();
@@ -90,7 +90,7 @@ export async function getTodayPrimaryEvents(
   todayEnd.setHours(23, 59, 59, 999);
 
   const res = await calendar.events.list({
-    calendarId: 'primary',
+    calendarId,
     timeMin: todayStart.toISOString(),
     timeMax: todayEnd.toISOString(),
     maxResults: 50,
@@ -99,8 +99,23 @@ export async function getTodayPrimaryEvents(
   });
   const events = res.data.items;
   if (!events || events.length === 0) {
-    console.log('No upcoming events found.');
     return [];
   }
   return events;
+}
+
+export function convertToReadableDateTime(
+  eventDateTime: calendar_v3.Schema$EventDateTime
+): string | null {
+  const { date, dateTime, timeZone } = eventDateTime;
+  const options = { timeZone: timeZone ?? undefined, hour12: false };
+  if (dateTime) {
+    const dateObj = new Date(dateTime);
+    const formattedDateTime = dateObj.toLocaleString('en-US', options);
+    return formattedDateTime;
+  }
+  if (date) {
+    return date;
+  }
+  return null;
 }

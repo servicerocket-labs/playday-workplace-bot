@@ -1,13 +1,15 @@
 import {
+  convertToReadableDateTime,
   getAuthorizeUrl,
-  getTodayPrimaryEvents,
+  getTodayEvents,
   getUserRefreshClient,
 } from '../utils/google';
 import { getJoke } from '../utils/joke';
 import { sendMessage } from '../utils/workplace';
 
 enum MessageKeyWords {
-  CalendarEvents = 'events',
+  CalendarEvents = 'google events',
+  TeamAvailability = 'team availability',
   Joke = 'joke',
 }
 
@@ -15,6 +17,9 @@ export async function webHookPageHandler(message: string, senderId: string) {
   switch (message) {
     case MessageKeyWords.CalendarEvents:
       await calendarEventsHandler(senderId);
+      break;
+    case MessageKeyWords.TeamAvailability:
+      await teamAvailabilityHandler(senderId);
       break;
     case MessageKeyWords.Joke:
       await jokeHandler(senderId);
@@ -24,23 +29,20 @@ export async function webHookPageHandler(message: string, senderId: string) {
   }
 }
 
-export async function notMatchHandler(senderId: string) {
+async function notMatchHandler(senderId: string) {
+  const quickReplies = Object.values(MessageKeyWords).map((keyword) => {
+    const quickReply = {
+      content_type: 'text',
+      title: keyword,
+      payload: keyword,
+      image_url: undefined,
+    };
+    return quickReply;
+  });
+
   const resMsg = {
     text: 'How can I help u : )',
-    quick_replies: [
-      {
-        content_type: 'text',
-        title: MessageKeyWords.Joke,
-        payload: MessageKeyWords.Joke,
-        image_url: undefined,
-      },
-      {
-        content_type: 'text',
-        title: MessageKeyWords.CalendarEvents,
-        payload: MessageKeyWords.CalendarEvents,
-        image_url: undefined,
-      },
-    ],
+    quick_replies: [...quickReplies],
   };
   sendMessage(senderId, resMsg);
 }
@@ -49,13 +51,90 @@ async function calendarEventsHandler(senderId: string) {
   const authClient = await getUserRefreshClient();
   if (!authClient) {
     // send authorization url if not authorized
-    const resMsg = { text: getAuthorizeUrl() };
+    const resMsg = {
+      attachment: {
+        type: 'template',
+        payload: {
+          template_type: 'button',
+          text: "Looks like you haven' authorize the app to access your Google data",
+          buttons: [
+            {
+              type: 'web_url',
+              url: getAuthorizeUrl(),
+              title: 'Authorize with Google',
+            },
+          ],
+        },
+      },
+    };
     await sendMessage(senderId, resMsg);
     return;
   }
   // send events
-  const events = await getTodayPrimaryEvents(authClient);
-  const resMsg = { text: JSON.stringify(events) };
+  const events = await getTodayEvents(authClient);
+  const eventsElements = events.map((event) => {
+    const { summary, start, end } = event;
+    const readableStart = convertToReadableDateTime(start ?? {});
+    const readableEnd = convertToReadableDateTime(end ?? {});
+    return {
+      title: summary,
+      subtitle: `start: ${readableStart}\nend : ${readableEnd}`,
+      image_url: `${process.env.BASE_URL}assets/google-calendar`,
+    };
+  });
+
+  const ptos = await getTodayEvents(
+    authClient,
+    'c_nn7hr3k6fa20erniclt1jf8u5g@group.calendar.google.com'
+  );
+
+  // const resMsg = { text: JSON.stringify(eventsInfo) };
+  const resMsg = {
+    attachment: {
+      type: 'template',
+      payload: {
+        template_type: 'generic',
+        elements: [...eventsElements],
+      },
+    },
+  };
+  await sendMessage(senderId, resMsg);
+}
+
+async function teamAvailabilityHandler(senderId: string) {
+  const authClient = await getUserRefreshClient();
+  if (!authClient) {
+    // send authorization url if not authorized
+    const resMsg = {
+      attachment: {
+        type: 'template',
+        payload: {
+          template_type: 'button',
+          text: "Looks like you haven' authorize the app to access your Google data",
+          buttons: [
+            {
+              type: 'web_url',
+              url: getAuthorizeUrl(),
+              title: 'Authorize with Google',
+            },
+          ],
+        },
+      },
+    };
+    await sendMessage(senderId, resMsg);
+    return;
+  }
+  // send events
+  const ptoEvents = await getTodayEvents(
+    authClient,
+    'c_nn7hr3k6fa20erniclt1jf8u5g@group.calendar.google.com'
+  );
+  const onLeaveList = ptoEvents.map((pto) => {
+    return pto.summary;
+  });
+
+  // const resMsg = { text: JSON.stringify(eventsInfo) };
+  const resMsg = { text: onLeaveList.join(',\n') };
   await sendMessage(senderId, resMsg);
 }
 

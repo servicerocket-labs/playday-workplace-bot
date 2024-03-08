@@ -7,6 +7,7 @@ import {
   saveCredentials,
 } from './utils/google.js';
 import { webHookPageHandler } from './handler/index.js';
+import fs from 'fs';
 
 configDotenv();
 const app = express();
@@ -28,7 +29,6 @@ app.post('/webhook/page', async (req, res) => {
   const messaging = entry[0].messaging[0];
   const senderId = messaging.sender.id;
   const message = messaging.message.text;
-  console.log(JSON.stringify(req.body));
 
   // handle request
   await webHookPageHandler(message, senderId);
@@ -43,12 +43,28 @@ app.get(getRedirectPath(), async (req, res) => {
   }
   const response = await getAuthenticatedClient().getToken(code);
   const refreshToken = response.tokens.refresh_token;
-  console.log('google tokens', response.tokens);
   if (!refreshToken) {
     return res.sendStatus(500);
   }
   await saveCredentials(refreshToken);
   return res.status(200).send('successfully authorize with Google');
+});
+
+app.get('/assets/google-calendar', async (_req, res) => {
+  // Assuming your PNG file is named "icon.png" and located in the same directory as your server script
+  const filePath = __dirname + '/assets/google-calendar.png';
+
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      console.error('Error reading file:', err);
+      res.status(500).send('Internal Server Error');
+      return;
+    }
+
+    // Set content type to image/png
+    res.contentType('image/png');
+    res.send(data);
+  });
 });
 
 app.listen(port, () => {

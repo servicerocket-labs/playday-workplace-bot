@@ -4,7 +4,7 @@
   "main": "./dist/index.js",
   "license": "MIT",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r assets dist/assets",
     "start": "nodemon ./dist/index.js",
     "watch": "tsc --watch"
   },
